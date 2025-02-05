@@ -51,17 +51,17 @@ public class SwerveDrive extends SubsystemBase {
 
     // 初始化 Swerve 模組
     frontLeft = new SwerveModule(DriveBaseConstants.kFrontLeftDriveMotorChannel,
-        DriveBaseConstants.kFrontLeftTurningMotorChannel,
+        DriveBaseConstants.kFrontLeftTurningMotorChannel, DriveBaseConstants.kFrontLeftCanCoder,
         DriveBaseConstants.kFrontLeftDriveMotorInverted, DriveBaseConstants.kFrontLeftCanCoderMagOffset, "frontLeft");
     frontRight = new SwerveModule(DriveBaseConstants.kFrontRightDriveMotorChannel,
-        DriveBaseConstants.kFrontRightTurningMotorChannel,
+        DriveBaseConstants.kFrontRightTurningMotorChannel, DriveBaseConstants.kFrontRightCanCoder,
         DriveBaseConstants.kFrontRightDriveMotorInverted, DriveBaseConstants.kFrontRightCanCoderMagOffset,
         "frontRight");
     backLeft = new SwerveModule(DriveBaseConstants.kBackLeftDriveMotorChannel,
-        DriveBaseConstants.kBackLeftTurningMotorChannel,
+        DriveBaseConstants.kBackLeftTurningMotorChannel, DriveBaseConstants.kBackLeftCanCoder,
         DriveBaseConstants.kBackLeftDriveMotorInverted, DriveBaseConstants.kBackLeftCanCoderMagOffset, "backLeft");
     backRight = new SwerveModule(DriveBaseConstants.kBackRightDriveMotorChannel,
-        DriveBaseConstants.kBackRightTurningMotorChannel,
+        DriveBaseConstants.kBackRightTurningMotorChannel, DriveBaseConstants.kBackRightCanCoder,
         DriveBaseConstants.kBackRightDriveMotorInverted, DriveBaseConstants.kBackRightCanCoderMagOffset, "backRight");
     SmartDashboard.putData("frontLeft", frontLeft);
     SmartDashboard.putData("frontRight", frontRight);
@@ -154,10 +154,10 @@ public class SwerveDrive extends SubsystemBase {
 
   // 重置所有輪子的 Encoder 與機器人位置
   public void resetPose2dAndEncoder() {
-    frontLeft.resetAllEncoder();
-    frontRight.resetAllEncoder();
-    backLeft.resetAllEncoder();
-    backRight.resetAllEncoder();
+    frontLeft.resetEncoders();
+    frontRight.resetEncoders();
+    backLeft.resetEncoders();
+    backRight.resetEncoders();
     resetPose(new Pose2d(0, 0, new Rotation2d(0)));
   }
 
@@ -165,13 +165,14 @@ public class SwerveDrive extends SubsystemBase {
   public void resetGyro() {
     gyro.reset();
   }
-  
+
   // 取得機器人目前的旋轉角度
   public Rotation2d getRotation2dDegrees() {
-    return Rotation2d.fromDegrees(DriveBaseConstants.kGyroOffSet
-        + ((DriveBaseConstants.kGyroInverted)
-            ? (360.0 - gyro.getRotation2d().getDegrees())
-            : gyro.getRotation2d().getDegrees()));
+    double angle = gyro.getRotation2d().getDegrees();
+    if (DriveBaseConstants.kGyroInverted) {
+      angle = -angle;
+    }
+    return Rotation2d.fromDegrees(DriveBaseConstants.kGyroOffSet + angle);
   }
 
   public void setMagnification(double magnification) {

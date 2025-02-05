@@ -3,21 +3,18 @@
 // the WPILib BSD license file in the root directory of this project.
 package frc.robot.drivebase;
 
-import com.ctre.phoenix.sensors.AbsoluteSensorRange;
+
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 //import com.revrobotics.CANSparkBase.IdleMode;
-import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
-import com.revrobotics.spark.SparkAbsoluteEncoder;
-import com.revrobotics.spark.SparkClosedLoopController;
 //import com.revrobotics.CANSparkLowLevel;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 //import com.revrobotics.CANSparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
-import com.revrobotics.AbsoluteEncoder;
+
 //import com.revrobotics.CANSparkMax;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.spark.config.SparkMaxConfig;
@@ -29,7 +26,7 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.Constants.DriveBaseConstants;
+
 import frc.robot.Constants.ModuleConstants;
 
 public class SwerveModule extends SubsystemBase {
@@ -40,14 +37,14 @@ public class SwerveModule extends SubsystemBase {
   private final CANcoder turningEncoder;
   private final RelativeEncoder driveEncoder;
 
-  private final PIDController driveController;
+ 
   private final PIDController rotController;
 
-  private double m_chassisAngularOffset = 0;
+
 
   private final String name;
 
-  private SwerveModuleState m_desiredState = new SwerveModuleState(0.0, new Rotation2d());
+ 
 
   public SwerveModule(int driveMotorChannel, int turningMotorChannel, int turningEncoderChannel,
       boolean driveInverted, double chassisAngularOffset, String name) {
@@ -65,20 +62,13 @@ public class SwerveModule extends SubsystemBase {
     turningEncoderConfiguration.MagnetSensor.MagnetOffset = chassisAngularOffset;
     turningEncoder.getConfigurator().apply(turningEncoderConfiguration);
 
-    driveController = new PIDController(0.50, 0, 0);
     rotController = new PIDController(0.50, 0, 0);
-
-    m_chassisAngularOffset = chassisAngularOffset;
-
     rotController.enableContinuousInput(-180, 180);
     init();
 
   }
 
-  // public boolean isInverted(){
-  // boolean isInverted = driveMotor.configAccessor.getInverted();
-  // return isInverted;
-  // }
+
 
   public void init() {
     configDriveMotor();
