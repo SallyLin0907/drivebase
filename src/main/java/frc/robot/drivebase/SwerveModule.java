@@ -37,16 +37,11 @@ public class SwerveModule extends SubsystemBase {
   private final SparkMax driveMotor;
   private final SparkMax turningMotor;
 
-  private final SparkAbsoluteEncoder turningEncoder;
+  private final CANcoder turningEncoder;
   private final RelativeEncoder driveEncoder;
 
   private final PIDController driveController;
   private final PIDController rotController;
-
-
-
-  public static final SparkMaxConfig driveConfig = new SparkMaxConfig();
-  public static final SparkMaxConfig turningConfig = new SparkMaxConfig();
 
   private double m_chassisAngularOffset = 0;
 
@@ -54,24 +49,27 @@ public class SwerveModule extends SubsystemBase {
 
   private SwerveModuleState m_desiredState = new SwerveModuleState(0.0, new Rotation2d());
 
-  public SwerveModule(int driveMotorChannel, int turningMotorChannel,
+  public SwerveModule(int driveMotorChannel, int turningMotorChannel, int turningEncoderChannel,
       boolean driveInverted, double chassisAngularOffset, String name) {
+
     this.name = name;
 
     driveMotor = new SparkMax(driveMotorChannel, MotorType.kBrushless);
     turningMotor = new SparkMax(turningMotorChannel, MotorType.kBrushless);
 
     driveEncoder = driveMotor.getEncoder();
-    turningEncoder = turningMotor.getAbsoluteEncoder();
+    turningEncoder = new CANcoder(turningEncoderChannel);
+
+    CANcoderConfiguration turningEncoderConfiguration = new CANcoderConfiguration();
+    turningEncoderConfiguration.MagnetSensor.withAbsoluteSensorDiscontinuityPoint(0.5);
+    turningEncoderConfiguration.MagnetSensor.MagnetOffset = chassisAngularOffset;
+    turningEncoder.getConfigurator().apply(turningEncoderConfiguration);
 
     driveController = new PIDController(0.50, 0, 0);
     rotController = new PIDController(0.50, 0, 0);
 
     m_chassisAngularOffset = chassisAngularOffset;
-    m_desiredState.angle = new Rotation2d(turningEncoder.getPosition());
 
-    driveEncoder.setPosition(0);
-    
     rotController.enableContinuousInput(-180, 180);
     init();
 
@@ -83,9 +81,9 @@ public class SwerveModule extends SubsystemBase {
   // }
 
   public void init() {
-  configDriveMotor();
-  configTurningMotor();
-  resetAllEncoder();
+    configDriveMotor();
+    configTurningMotor();
+    resetEncoders();
   }
 
   public void configDriveMotor() {
@@ -109,9 +107,7 @@ public class SwerveModule extends SubsystemBase {
 
   }
 
-  public void resetAllEncoder() {
-    driveEncoder.setPosition(0);
-  }
+ 
 
   public void stopModule() {
     driveMotor.set(0);
@@ -120,8 +116,8 @@ public class SwerveModule extends SubsystemBase {
 
   // to get the single swerveModule speed and the turning rate
   public SwerveModuleState getState() {
-    return new SwerveModuleState(driveEncoder.getVelocity(),
-        new Rotation2d(turningEncoder.getPosition() - m_chassisAngularOffset));
+    return new SwerveModuleState(
+        getDriveRate(), new Rotation2d(Math.toRadians(getRotation())));
   }
 
   // to get the drive distance
@@ -138,37 +134,20 @@ public class SwerveModule extends SubsystemBase {
 
   // to get rotation of turning motor
   public double getRotation() {
-    return turningEncoder.getPosition() * 360.0;
+    return turningEncoder.getAbsolutePosition().getValueAsDouble() * 360.0;
   }
 
   // to the get the postion by wpi function
   public SwerveModulePosition getPosition() {
     return new SwerveModulePosition(
-        driveEncoder.getPosition(),
-        new Rotation2d(turningEncoder.getPosition() - m_chassisAngularOffset));
-
+        getDriveDistance(), new Rotation2d(Math.toRadians(getRotation())));
   }
-
-  // public double[] optimizeOutputVoltage(SwerveModuleState goalState, double
-  // currentTurningDegree) {
-  // SwerveModuleState desiredState = new SwerveModuleState(
-  // goalState.speedMetersPerSecond,
-  // new Rotation2d(Math.toRadians(currentTurningDegree)));
-  // desiredState.optimize(new Rotation2d(Math.toRadians(currentTurningDegree)));
-  // double driveMotorVoltage = desiredState.speedMetersPerSecond *
-  // ModuleConstants.kDesireSpeedtoMotorVoltage;
-  // double turningMotorVoltage = rotController.calculate(currentTurningDegree,
-  // desiredState.angle.getDegrees());
-
-  // return new double[] { driveMotorVoltage, turningMotorVoltage };
-  // }
 
   public double[] optimizeOutputVoltage(SwerveModuleState goalState, double currentTurningDegree) {
     // 建立目標 SwerveModuleState
     SwerveModuleState desiredState = new SwerveModuleState(
-        goalState.speedMetersPerSecond, 
-        new Rotation2d(Math.toRadians(currentTurningDegree))
-    );
+        goalState.speedMetersPerSecond,
+        new Rotation2d(Math.toRadians(currentTurningDegree)));
 
     // 直接對 `desiredState` 進行最佳化
     desiredState.optimize(new Rotation2d(Math.toRadians(currentTurningDegree)));
@@ -177,20 +156,18 @@ public class SwerveModule extends SubsystemBase {
     double driveMotorVoltage = desiredState.speedMetersPerSecond * ModuleConstants.kDesireSpeedtoMotorVoltage;
     double turningMotorVoltage = rotController.calculate(currentTurningDegree, desiredState.angle.getDegrees());
 
-    return new double[]{driveMotorVoltage, turningMotorVoltage};
-}
-
-  
-
- public void setDesiredState(SwerveModuleState desiredState) {
-      var moduleState = optimizeOutputVoltage(desiredState, getRotation());
-      driveMotor.setVoltage(moduleState[0]);
-      turningMotor.setVoltage(moduleState[1]);
-      SmartDashboard.putNumber(name + "_voltage", moduleState[0]);
+    return new double[] { driveMotorVoltage, turningMotorVoltage };
   }
 
-  public Command setDesiredStateCmd(SwerveModuleState state){
-    Command cmd = runOnce(()->setDesiredState(state));
+  public void setDesiredState(SwerveModuleState desiredState) {
+    var moduleState = optimizeOutputVoltage(desiredState, getRotation());
+    driveMotor.setVoltage(moduleState[0]);
+    turningMotor.setVoltage(moduleState[1]);
+    SmartDashboard.putNumber(name + "_voltage", moduleState[0]);
+  }
+
+  public Command setDesiredStateCmd(SwerveModuleState state) {
+    Command cmd = runOnce(() -> setDesiredState(state));
     cmd.setName("SetDesiredStateCmd");
     return cmd;
   }
